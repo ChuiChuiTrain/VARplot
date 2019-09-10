@@ -3,7 +3,7 @@ import numpy as nump
 import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters
 from IPython import get_ipython
-from helper_functions import grangers_causation_matrix, invert_transformation, forecast_accuracy, difference, adfuller_test, cointegration_test, adjust
+from VARplot_helper_functions import grangers_causation_matrix, invert_transformation, forecast_accuracy, difference, adfuller_test, cointegration_test, adjust
 from statsmodels.tsa.vector_ar.vecm import coint_johansen
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.api import VAR
@@ -46,20 +46,12 @@ df_train, df_test = dataFrame[0:-nobs], dataFrame[-nobs:]
 print(df_train.shape)
 print(df_test.shape)
 
-# perform ADF test on each column of the 1st diff dataframe
+# difference the dataFrame until all columns are stationary
 df_differenced_val = difference(df_train)
 df_differenced = df_differenced_val[0]
 df_differenced_count = df_differenced_val[1]
 
-# perform ADF test on each column of 2nd diff dataframe
-#df_differenced = df_differenced.diff().dropna()
 
-#perform ADF test on each column of 3rd diff dataframe
-#df_differenced = df_differenced.diff().dropna()
-
-#perform ADF test on 4th diff dataframe to get it to be stationary
-
-#df_differenced = df_differenced.diff().dropna()
 
 for name, column in df_differenced.iteritems():
     adfuller_test(column, name = column.name)
@@ -107,7 +99,13 @@ df_forecast = pan.DataFrame(fc, index = dataFrame.index[-nobs:], columns = dataF
 print(df_forecast)
 
 # invert transformations to get real forecast
-df_results = invert_transformation(df_train, df_forecast, second_diff = True)
+if df_differenced_val != 0:
+    if df_differenced_val == 2:
+        df_results = invert_transformation(df_train, df_forecast, second_diff = True)
+    else:
+        df_results = invert_transformation(df_train, df_forecast, second_diff = False)
+else:
+    df_results = df_train
 
 temp_list = []
 for item in dataFrame.columns:
@@ -116,6 +114,7 @@ df_results.loc[:, temp_list]
 
 print(df_results)
 
+# plot the forecast and actual data
 fig, axes = plt.subplots(nrows=int(len(dataFrame.columns)), ncols=1, dpi=150, figsize=(10,15))
 for i, (col,ax) in enumerate(zip(dataFrame.columns, axes.flatten())):
     df_results[col+'_forecast'].plot(legend=True, ax=ax).autoscale(axis='x',tight=True)
@@ -128,6 +127,7 @@ for i, (col,ax) in enumerate(zip(dataFrame.columns, axes.flatten())):
 
 plt.tight_layout();
 
+# print the forecast accuracy
 print('Forecast Accuracy of: Annual Growth')
 accuracy_prod = forecast_accuracy(df_results['Annual Growth _forecast'].values, df_test['Annual Growth '])
 for k, v in accuracy_prod.items():
